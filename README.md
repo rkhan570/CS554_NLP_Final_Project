@@ -1,4 +1,4 @@
-# CS554_NLP_Final_Project
+# CS554 NLP Final Project
 NLP Final Project. We are developing a toolkit and application to uncover urban consumer trends and link them to regional socio-economic conditions. 
 
 # Mapping Urban Socio-Economic Trends via Yelp Reviews and Geospatial Analysis
