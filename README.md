@@ -25,9 +25,13 @@ The dataset used in this project is a merged Parquet file combining the above JS
 
 ## Data Preprocessing
 Preprocessing steps include:
-- **Step 1:** aoifwaoawiofjwaidjawoifwao.
-- **Step 2:** aoifwaoawiofjwaidjawoifwao.
-- **Step 3:** aoifwaoawiofjwaidjawoifwao.
+- **Step 1:** Lowercasing
+- **Step 2:** Remove Punctuations
+- **Step 3:** Tokenization
+- **Step 4:** Stop Word Removal
+- **Step 5:** Lemmatization
+- **Step 6:** Remove Extra Characters(Spaces, Letters, and Special Characters)
+- **Step 7:** Emoji -> Text
 
 ## Methodology
 
