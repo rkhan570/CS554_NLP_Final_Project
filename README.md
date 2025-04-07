@@ -1,4 +1,4 @@
-# CS554_NLP_Final_Project
+# CS554 NLP Final Project
 NLP Final Project. We are developing a toolkit and application to uncover urban consumer trends and link them to regional socio-economic conditions. 
 
 # Mapping Urban Socio-Economic Trends via Yelp Reviews and Geospatial Analysis
@@ -25,9 +25,13 @@ The dataset used in this project is a merged Parquet file combining the above JS
 
 ## Data Preprocessing
 Preprocessing steps include:
-- **Step 1:** aoifwaoawiofjwaidjawoifwao.
-- **Step 2:** aoifwaoawiofjwaidjawoifwao.
-- **Step 3:** aoifwaoawiofjwaidjawoifwao.
+- **Step 1:** Lowercasing
+- **Step 2:** Remove Punctuations
+- **Step 3:** Tokenization
+- **Step 4:** Stop Word Removal
+- **Step 5:** Lemmatization
+- **Step 6:** Remove Extra Characters(Spaces, Letters, and Special Characters)
+- **Step 7:** Emoji -> Text
 
 ## Methodology
 
