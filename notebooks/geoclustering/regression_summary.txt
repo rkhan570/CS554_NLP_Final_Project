@@ -1,0 +1,28 @@
+                            OLS Regression Results                            
+==============================================================================
+Dep. Variable:          avg_sentiment   R-squared:                       0.730
+Model:                            OLS   Adj. R-squared:                  0.723
+Method:                 Least Squares   F-statistic:                     101.5
+Date:                Tue, 15 Apr 2025   Prob (F-statistic):           4.66e-22
+Time:                        13:30:06   Log-Likelihood:                 47.711
+No. Observations:                  78   AIC:                            -89.42
+Df Residuals:                      75   BIC:                            -82.35
+Df Model:                           2                                         
+Covariance Type:            nonrobust                                         
+==============================================================================
+                 coef    std err          t      P>|t|      [0.025      0.975]
+------------------------------------------------------------------------------
+const         -0.4112      0.069     -5.973      0.000      -0.548      -0.274
+avg_stars      0.2559      0.019     13.754      0.000       0.219       0.293
+count        1.17e-05   5.47e-06      2.137      0.036    7.95e-07    2.26e-05
+==============================================================================
+Omnibus:                       56.625   Durbin-Watson:                   1.514
+Prob(Omnibus):                  0.000   Jarque-Bera (JB):              370.300
+Skew:                          -2.042   Prob(JB):                     3.89e-81
+Kurtosis:                      12.862   Cond. No.                     1.46e+04
+==============================================================================
+
+Notes:
+[1] Standard Errors assume that the covariance matrix of the errors is correctly specified.
+[2] The condition number is large, 1.46e+04. This might indicate that there are
+strong multicollinearity or other numerical problems.
