@@ -54,7 +54,7 @@ def create_streamlit_ui(merged_gdf, demographic_columns):
 
     selected_column = st.selectbox("Choose a demographic column", demographic_columns)
 
-    m = folium.Map(location=[39.9526, -75.1652], zoom_start=12, 
+    m = folium.Map(location=[39.9526, -75.1652], zoom_start=12, tiles="CartoDB Positron",
                    scrollWheelZoom=False, zoomControl=False, dragging=False)
 
     folium.GeoJson(
@@ -64,7 +64,7 @@ def create_streamlit_ui(merged_gdf, demographic_columns):
             'fillColor': 'blue',
             'color': 'black',
             'weight': 1,
-            'fillOpacity': 0.2
+            'fillOpacity': 0.1
         },
         tooltip=folium.GeoJsonTooltip(
             fields=['CODE', 'total_population', 'median_earnings_(dollars)'],
