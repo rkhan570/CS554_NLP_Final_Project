@@ -1,103 +1,158 @@
-import folium
+import warnings
+import streamlit as st
 import pandas as pd
 import geopandas as gpd
-from folium.plugins import HeatMap
-import streamlit as st
-from streamlit_folium import st_folium
+import folium
+from folium.plugins import HeatMap, MarkerCluster
+from shapely.geometry import Point
+from streamlit.components.v1 import html
 
-def load_and_merge_data():
-    age_df = pd.read_csv('../../datasets/cleaned_datasets/demographic_dataset/age.csv')
-    education_df = pd.read_csv('../../datasets/cleaned_datasets/demographic_dataset/education.csv')
-    income_df = pd.read_csv('../../datasets/cleaned_datasets/demographic_dataset/income.csv')
+st.set_page_config(
+    page_title="Philly Demographics & Reviews",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-    merged_df = age_df.merge(education_df, on='Area Code', how='inner')
-    merged_df = merged_df.merge(income_df, on='Area Code', how='inner')
+@st.cache_data
+def load_zip_demo():
+    zip_gdf = (
+        gpd.read_file("../../datasets/cleaned_datasets/philly_boundaries/Zipcodes_Poly.geojson")
+        .to_crs("EPSG:4326")
+    )
+    zip_gdf['CODE'] = zip_gdf['CODE'].str.strip()
+    warnings.filterwarnings("ignore", message="Geometry is in a geographic CRS.*")
+    pts = zip_gdf.geometry.representative_point()
+    zip_gdf['centroid_x'] = pts.x
+    zip_gdf['centroid_y'] = pts.y
 
-    merged_df.columns = merged_df.columns.str.strip().str.lower().str.replace(' ', '_')
-    merged_df['area_code'] = merged_df['area_code'].astype(str)
-    return merged_df
+    demo_base = "../../datasets/cleaned_datasets/demographic_dataset"
+    df = (
+        pd.read_csv(f"{demo_base}/age.csv")
+        .merge(pd.read_csv(f"{demo_base}/education.csv"), on="Area Code")
+        .merge(pd.read_csv(f"{demo_base}/income.csv"), on="Area Code")
+    )
+    df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
+    df['area_code'] = df['area_code'].astype(str).str.strip()
+    df.rename(columns={'area_code':'CODE'}, inplace=True)
 
-def load_geojson_data():
-    geojson_path = "../../datasets/cleaned_datasets/philly_boundaries/Zipcodes_Poly.geojson"
-    geojson = gpd.read_file(geojson_path)
-    geojson['CODE'] = geojson['CODE'].str.strip()
-    return geojson
+    merged = zip_gdf.merge(df, on='CODE', how='left')
+    return merged
 
-def merge_demographics_with_geojson(merged_df, geojson):
-    merged_df.rename(columns={'area_code': 'CODE'}, inplace=True)
-    merged_df['CODE'] = merged_df['CODE'].str.strip()
+@st.cache_data
+def precompute_heat():
+    gdf = load_zip_demo()
+    exclude = {
+        'CODE','geometry','centroid_x','centroid_y',
+        'OBJECTID','COD','Shape__Area','Shape__Length',
+        'unnamed:_0_x','age','unnamed:_0_y','unnamed:_0'
+    }
+    heat = {}
+    for col in gdf.columns:
+        if col in exclude: continue
+        vals = pd.to_numeric(gdf[col], errors='coerce')
+        if not vals.notna().any(): continue
+        heat[col] = [
+            [float(y), float(x), float(v)]
+            for x,y,v in zip(gdf.centroid_x, gdf.centroid_y, vals)
+            if pd.notna(v)
+        ]
+    return heat
 
-    merged_gdf = geojson.merge(merged_df, on='CODE', how='left')
-    return merged_gdf
+@st.cache_data
+def load_businesses():
+    biz = gpd.read_file("gdf_businesses.geojson").to_crs("EPSG:4326")
+    agg = (
+        biz.groupby("business_id")
+        .agg(
+            latitude=("latitude","first"),
+            longitude=("longitude","first"),
+            sentiment_score=("sentiment_score","mean"),
+            subjectivity_score=("subjectivity_score","mean"),
+            stars_rev=("stars_rev","mean"),
+            topic_label=("topic_label", lambda s: s.mode().iloc[0]),
+            hdbscan_cluster=("hdbscan_cluster","first")
+        )
+        .reset_index()
+    )
+    return agg
 
-def update_heatmap(m, selected_column, gdf):
-    filtered_gdf = gdf[gdf[selected_column].notnull()]
+@st.cache_data
+def load_clusters():
+    clusters = gpd.read_file("clusters.geojson").to_crs("EPSG:4326")
+    datetime_cols = clusters.select_dtypes(include=['datetime64[ns]', 'datetime64[ns, UTC]']).columns
+    clusters.drop(columns=datetime_cols, inplace=True)
+    clusters['popup_html'] = clusters.apply(
+        lambda r: (
+            f"<strong>Cluster {int(r.hdbscan_cluster)}</strong><br>"
+            f"Count: {int(r.business_count)}<br>"
+            f"Avg Stars: {r.avg_stars:.2f}<br>"
+            f"Avg Sentiment: {r.avg_sentiment:.2f}<br>"
+            f"Avg Subjectivity: {r.avg_subjectivity:.2f}"
+        ), axis=1
+    )
+    return clusters
 
-    filtered_gdf[selected_column] = pd.to_numeric(filtered_gdf[selected_column], errors='coerce')
+heat_data = precompute_heat()
+demo_cols = list(heat_data.keys())
 
-    heat_data = [
-        [point['geometry'].centroid.y, point['geometry'].centroid.x, point[selected_column]] 
-        for _, point in filtered_gdf.iterrows()
-        if pd.notnull(point[selected_column])
-    ]
+st.title("📊 Philadelphia Demographics & Reviews")
+selected = st.selectbox("Choose demographic variable for heatmap:", demo_cols)
 
-    for layer in m._children:
-        if isinstance(m._children[layer], folium.plugins.HeatMap):
-            del m._children[layer]
+gdf = load_zip_demo()
+m = folium.Map(
+    location=[39.9526, -75.1652],
+    zoom_start=12,
+    tiles="CartoDB Positron",
+    prefer_canvas=True
+)
 
-    HeatMap(heat_data).add_to(m)
-    return m
+folium.GeoJson(
+    gdf,
+    name="ZIP Boundaries",
+    smooth_factor=1,
+    style_function=lambda _: {
+        'fillColor':'blue','color':'black','weight':1,'fillOpacity':0.1
+    },
+    tooltip=folium.GeoJsonTooltip(
+        fields=['CODE', selected],
+        aliases=['ZIP Code:', f"{selected.replace('_',' ').title()}:"])
+).add_to(m)
 
-def create_streamlit_ui(merged_gdf, demographic_columns):
-    st.title("Interactive Demographic Heatmap")
-    st.write("Select a demographic column to visualize on the map:")
+HeatMap(
+    heat_data[selected],
+    name="Demographic Heatmap",
+    radius=15, blur=25, max_zoom=12, min_opacity=0.5
+).add_to(m)
 
-    selected_column = st.selectbox("Choose a demographic column", demographic_columns)
+biz_df = load_businesses()
+marker_cluster = MarkerCluster(name="Businesses").add_to(m)
+for _, r in biz_df.iterrows():
+    folium.Marker(
+        location=[r.latitude, r.longitude],
+        popup=folium.Popup(html=(
+            f"<strong>Stars:</strong> {r.stars_rev:.1f}<br>"
+            f"<strong>Sentiment:</strong> {r.sentiment_score:.2f}<br>"
+            f"<strong>Subjectivity:</strong> {r.subjectivity_score:.2f}<br>"
+            f"<strong>Topic:</strong> {r.topic_label}"
+        ), max_width=250),
+        icon=folium.Icon(color='green' if r.sentiment_score>=0 else 'red')
+    ).add_to(marker_cluster)
 
-    m = folium.Map(location=[39.9526, -75.1652], zoom_start=12, tiles="CartoDB Positron",
-                   scrollWheelZoom=False, zoomControl=False, dragging=False)
+clusters = load_clusters()
+folium.GeoJson(
+    data=clusters.__geo_interface__,
+    name="Clusters",
+    smooth_factor=1,
+    style_function=lambda _: {
+        'fillColor':'orange','color':'darkorange','weight':2,'fillOpacity':0.2
+    },
+    popup=folium.GeoJsonPopup(fields=['popup_html'])
+).add_to(m)
 
-    folium.GeoJson(
-        merged_gdf,
-        name="ZIP Code Boundaries",
-        style_function=lambda x: {
-            'fillColor': 'blue',
-            'color': 'black',
-            'weight': 1,
-            'fillOpacity': 0.1
-        },
-        tooltip=folium.GeoJsonTooltip(
-            fields=['CODE', 'total_population', 'median_earnings_(dollars)'],
-            aliases=["ZIP Code:", "Total Population:", "Median Earnings:"],
-            localize=True
-        ),
-        popup=folium.GeoJsonPopup(fields=['CODE', 'total_population', 'median_earnings_(dollars)'])
-    ).add_to(m)
+folium.LayerControl(collapsed=False).add_to(m)
+minx, miny, maxx, maxy = gdf.geometry.total_bounds
+m.fit_bounds([[miny, minx], [maxy, maxx]])
 
-    m = update_heatmap(m, selected_column, merged_gdf)
-
-    bounds = merged_gdf.geometry.total_bounds
-    m.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
-
-    st_folium(m, width=725)
-
-def main():
-    merged_df = load_and_merge_data()
-    geojson = load_geojson_data()
-    merged_gdf = merge_demographics_with_geojson(merged_df, geojson)
-
-    demographic_columns = [
-        'total_population', 'age', 'under_5_years', '5_to_9_years', '10_to_14_years', '15_to_19_years',
-        '20_to_24_years', '25_to_29_years', '30_to_34_years', '35_to_39_years', '40_to_44_years', 
-        '45_to_49_years', '50_to_54_years', '55_to_59_years', '60_to_64_years', '65_to_69_years', 
-        '70_to_74_years', '75_to_79_years', '80_to_84_years', '85_years_and_over', 'less_than_high_school_graduate',
-        'high_school_graduate', 'some_college_or_associate\'s_degree', 'bachelor\'s_degree_or_higher',
-        'population_16_years_and_over_with_earnings', 'median_earnings_(dollars)', 'full-time,_year-round_workers_with_earnings',
-        '$1_to_$9,999_or_loss', '$10,000_to_$14,999', '$15,000_to_$24,999', '$25,000_to_$34,999',
-        '$35,000_to_$49,999', '$50,000_to_$64,999', '$65,000_to_$74,999', '$75,000_to_$99,999', '$100,000_or_more'
-    ]
-
-    create_streamlit_ui(merged_gdf, demographic_columns)
-
-if __name__ == "__main__":
-    main()
+map_html = m.get_root().render()
+wrapped = f'<div style="width:100vw;height:80vh;margin:0;padding:0;">{map_html}</div>'
+html(wrapped, height=800)
