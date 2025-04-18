@@ -1,0 +1,17 @@
+# Paths & I/O
+reviews_parquet: "./datasets/cleaned_datasets/demographic_infused_philly_c.parquet"
+precompute_dir: "precomputed"
+zip_boundaries: "./datasets/cleaned_datasets/philly_boundaries/Zipcodes_Poly.geojson"
+demog_base_dir: "./datasets/cleaned_datasets/demographic_dataset"
+
+# NLP & Clustering Params
+num_topics: 10
+min_cluster_size: 25
+
+# OpenAI
+openai_model: "gpt-4o-mini"
+
+# Geo/CRS & LDA defaults
+crs_epsg: "EPSG:4326"
+lda_max_df: 0.95
+lda_min_df: 10
