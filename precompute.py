@@ -4,10 +4,10 @@ Batch‐process Yelp + demographic data into GeoJSONs for quick loading in Strea
 Loads settings from `config.yaml` in the same directory.
 
 Outputs (to `precompute_dir`):
-  • businesses.geojson  
-  • clusters.geojson    
-  • zip_demo.geojson    
-  • heat_data.json      
+  - businesses.geojson  
+  - clusters.geojson    
+  - zip_demo.geojson    
+  - heat_data.json      
 """
 import os
 import logging
@@ -32,9 +32,7 @@ def load_config(path: str = "config.yaml") -> dict:
     with open(path, "r") as f:
         return yaml.safe_load(f)
 
-# ────────────────────────────────────────────────────────────────
-# Load configuration
-# ────────────────────────────────────────────────────────────────
+# Load config
 cfg = load_config()
 
 INPUT_PARQUET       = cfg["reviews_parquet"]
@@ -51,9 +49,7 @@ LDA_MIN_DF          = cfg["lda_min_df"]
 BUSINESSES_GEOJSON = os.path.join(OUTPUT_DIR, "businesses.geojson")
 CLUSTERS_GEOJSON   = os.path.join(OUTPUT_DIR, "clusters.geojson")
 
-# ────────────────────────────────────────────────────────────────
 # Merge ZIP + demographics
-# ────────────────────────────────────────────────────────────────
 def load_zip_demo() -> gpd.GeoDataFrame:
     zip_gdf = gpd.read_file(ZIP_BOUNDARIES_PATH).to_crs(CRS_EPSG)
     zip_gdf["CODE"] = zip_gdf["CODE"].str.strip()
@@ -106,9 +102,7 @@ def precompute_heat(merged_zip: gpd.GeoDataFrame) -> dict:
         ]
     return heat
 
-# ────────────────────────────────────────────────────────────────
 # Label topics via OpenAI
-# ────────────────────────────────────────────────────────────────
 def label_topic(keywords: list[str], client: OpenAI) -> str:
     prompt = (
         "Below are keywords representing a topic from Yelp reviews:\n"
@@ -125,9 +119,6 @@ def label_topic(keywords: list[str], client: OpenAI) -> str:
     )
     return resp.choices[0].message.content.strip()
 
-# ────────────────────────────────────────────────────────────────
-# Main process
-# ────────────────────────────────────────────────────────────────
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     logging.basicConfig(

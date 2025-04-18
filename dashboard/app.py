@@ -2,7 +2,6 @@
 Streamlit dashboard for Philly Yelp + Demographics.
 Loads precomputed GeoJSONs and heat data for fast startup.
 """
-
 import os
 import json
 import yaml
