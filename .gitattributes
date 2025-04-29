@@ -1,1 +1,4 @@
 *.parquet filter=lfs diff=lfs merge=lfs -text
+*.geojson filter=lfs diff=lfs merge=lfs -text
+notebooks/geoclustering/gdf_businesses.geojson filter=lfs diff=lfs merge=lfs -text
+notebooks/geoclustering/clusters.geojson filter=lfs diff=lfs merge=lfs -text
